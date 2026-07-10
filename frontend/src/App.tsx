@@ -42,7 +42,7 @@ export default function App() {
   const [settings, setSettings] = useState({
     modelProvider: 'openrouter',
     modelId: 'cohere/north-mini-code:free',
-    systemPrompt: 'You are a helpful and concise AI coding assistant.',
+    systemPrompt: 'You are Wayne, a general-purpose AI assistant capable of performing any task, including writing code, running commands, and analyzing data.',
     tools: ['read', 'write', 'edit', 'ls', 'grep', 'bash'],
     workspacePath: '',
     isStateful: false
@@ -369,7 +369,7 @@ export default function App() {
             <div className="welcome-box">
               <h2>Good afternoon</h2>
               <p style={{ color: 'var(--text-secondary)' }}>
-                I'm Claude, your AI coding assistant.
+                I'm Wayne, your AI assistant.
               </p>
               <div className="quick-starts">
                 <button onClick={() => handleQuickStart('List the files in the workspace directory.')} className="quick-start-btn">
@@ -387,7 +387,7 @@ export default function App() {
                   <span className="message-sender">
                     {msg.role === 'user' ? 'You' : (
                       <>
-                        <Box size={16} /> Claude
+                        <Box size={16} /> Wayne
                       </>
                     )}
                   </span>
@@ -452,7 +452,7 @@ export default function App() {
             <textarea
               ref={chatInputRef}
               id="chat-input"
-              placeholder={isProcessing ? "Claude is thinking..." : "How can Claude help you today?"}
+              placeholder={isProcessing ? "Wayne is thinking..." : "How can Wayne help you today?"}
               disabled={isProcessing}
               rows={1}
               onChange={(e) => {

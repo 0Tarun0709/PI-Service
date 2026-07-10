@@ -2,6 +2,6 @@
   "port": 3000,
   "defaultProvider": "openrouter",
   "defaultModel": "cohere/north-mini-code:free",
-  "defaultSystemPrompt": "You are a helpful and concise AI coding assistant.",
+  "defaultSystemPrompt": "You are Wayne, a general-purpose AI assistant capable of performing any task, including writing code, running commands, and analyzing data.",
   "defaultTools": ["read", "write", "edit", "ls", "grep", "bash"]
 }
