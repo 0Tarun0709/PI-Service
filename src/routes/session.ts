@@ -66,7 +66,7 @@ export async function sessionRoutes(fastify: FastifyInstance, options: { session
       sessionService.saveMessages(id, session.state.messages);
     }
 
-    reply.sent = true;
+    return reply;
   });
 
   // Get session status and message history (works for both active and disposed sessions)
@@ -152,6 +152,6 @@ export async function sessionRoutes(fastify: FastifyInstance, options: { session
       }
     }
 
-    reply.sent = true;
+    return reply;
   });
 }
