@@ -1,0 +1,23 @@
+{
+  "name": "pi-llm",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.80.6",
+    "@fastify/cors": "^11.3.0",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.10.0"
+  }
+}
