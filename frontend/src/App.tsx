@@ -331,6 +331,22 @@ export default function App() {
     }
   };
 
+  const formatToolResult = (result: any) => {
+    if (!result) return '';
+    if (typeof result === 'string') return result;
+    if (result.stdout !== undefined || result.stderr !== undefined) {
+      let out = result.stdout || '';
+      if (result.stderr) {
+        out += `\nError:\n${result.stderr}`;
+      }
+      return out.trim();
+    }
+    if (Array.isArray(result.content)) {
+      return result.content.map((c: any) => c.text || JSON.stringify(c)).join('\n').trim();
+    }
+    return JSON.stringify(result, null, 2);
+  };
+
   return (
     <div className={`app-container ${darkMode ? 'dark' : ''}`}>
       {/* Sidebar history */}
@@ -411,8 +427,8 @@ export default function App() {
                               {isExpanded && (
                                 <div className="tool-body">
                                   <pre>
-                                    {resultLog?.details?.result
-                                      ? `${resultLog.details.result.stdout || ''}\n${resultLog.details.result.stderr || ''}`.trim() || 'Success (no output)'
+                                    {resultLog
+                                      ? formatToolResult(resultLog.details?.result) || 'Success (no output)'
                                       : startLog.details?.args ? JSON.stringify(startLog.details.args, null, 2) : 'Executing...'}
                                   </pre>
                                 </div>
