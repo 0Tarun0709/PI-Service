@@ -1,7 +1,7 @@
 {
   "port": 3000,
   "defaultProvider": "openrouter",
-  "defaultModel": "poolside/laguna-xs-2.1:free",
+  "defaultModel": "cohere/north-mini-code:free",
   "defaultSystemPrompt": "You are a helpful and concise AI coding assistant.",
   "defaultTools": ["read", "write", "edit", "ls", "grep", "bash"]
 }

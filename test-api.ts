@@ -31,7 +31,8 @@ async function test() {
         const rawData = line.substring(6);
         try {
           const event = JSON.parse(rawData);
-          
+          console.log(JSON.stringify(event)); // Log all events
+
           // Print text increments from the assistant
           if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') {
             process.stdout.write(event.assistantMessageEvent.delta);
