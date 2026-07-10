@@ -5,6 +5,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { ArtifactPanel, type LogEntry } from './components/ArtifactPanel';
 import { Send, Settings, Terminal, ChevronDown, ChevronRight, CheckCircle2, Paperclip, Box, AlertCircle } from 'lucide-react';
 import './App.css';
+import configJson from '../../config.json';
 
 const API_URL = 'http://localhost:3000/api';
 
@@ -40,10 +41,10 @@ export default function App() {
 
   // Settings state
   const [settings, setSettings] = useState({
-    modelProvider: 'openrouter',
-    modelId: 'cohere/north-mini-code:free',
-    systemPrompt: 'You are Wayne, a general-purpose AI assistant capable of performing any task, including writing code, running commands, and analyzing data.',
-    tools: ['read', 'write', 'edit', 'ls', 'grep', 'bash'],
+    modelProvider: configJson.defaultProvider || 'openrouter',
+    modelId: configJson.defaultModel || 'cohere/north-mini-code:free',
+    systemPrompt: configJson.defaultSystemPrompt || 'You are Wayne, a general-purpose AI assistant capable of performing any task, including writing code, running commands, and analyzing data.',
+    tools: configJson.defaultTools || ['read', 'write', 'edit', 'ls', 'grep', 'bash'],
     workspacePath: '',
     isStateful: false
   });

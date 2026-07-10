@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { rmSync, existsSync } from 'node:fs';
 import { SessionService, type CreateSessionOptions } from '../services/session.js';
+import { config } from '../config.js';
 
 export async function sessionRoutes(fastify: FastifyInstance, options: { sessionService: SessionService }) {
   const { sessionService } = options;
@@ -8,6 +9,18 @@ export async function sessionRoutes(fastify: FastifyInstance, options: { session
   // List all active and historical sessions from SQLite
   fastify.get('/sessions', async () => {
     return sessionService.list();
+  });
+
+  // Get active system configurations
+  fastify.get('/config', async () => {
+    return {
+      modelProvider: config.defaultProvider,
+      modelId: config.defaultModel,
+      systemPrompt: config.defaultSystemPrompt,
+      tools: config.defaultTools,
+      workspacePath: '',
+      isStateful: false
+    };
   });
 
   // Create a new session
