@@ -276,17 +276,24 @@ export default function App() {
                 addLog(`Tool completed: ${event.toolName} (${status})`, 'result', event);
               }
 
-              if (event.type === 'error') {
-                addLog(`Agent execution error: ${event.message}`, 'error');
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const idx = updated.length - 1;
-                  const last = updated[idx];
-                  if (last && last.role === 'assistant') {
-                    updated[idx] = { ...last, content: last.content + `\n[Runtime Error: ${event.message}]` };
-                  }
-                  return updated;
-                });
+              if (event.type === 'error' || event.type === 'auto_retry_start' || event.type === 'auto_retry_end') {
+                const isRetry = event.type.startsWith('auto_retry');
+                const errorMsg = isRetry ? event.errorMessage || event.finalError : event.message;
+                const logLabel = event.type === 'auto_retry_start' ? `Retrying (Attempt ${event.attempt}/${event.maxAttempts}): ${errorMsg}` : `Agent error: ${errorMsg}`;
+                
+                addLog(logLabel, 'error');
+                
+                if (event.type === 'error' || event.type === 'auto_retry_end') {
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    const idx = updated.length - 1;
+                    const last = updated[idx];
+                    if (last && last.role === 'assistant') {
+                      updated[idx] = { ...last, content: last.content + `\n\n> ⚠️ **Provider Error:** ${errorMsg}` };
+                    }
+                    return updated;
+                  });
+                }
               }
             } catch (err) {
               // Fragment buffer error, ignore
@@ -401,6 +408,32 @@ export default function App() {
                       </div>
                     ) : (
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    )}
+                    
+                    {/* Inline Tool Executions rendering at the bottom of the latest Assistant turn */}
+                    {msg.role === 'assistant' && index === messages.length - 1 && logs.filter(l => l.type === 'tool').length > 0 && (
+                      <div className="inline-tool-executions animate-fade-in">
+                        {logs.filter(l => l.type === 'tool').map((startLog, lIdx) => {
+                          // Find the corresponding result log that comes after this tool invocation
+                          const resultLog = logs.find(l => l.type === 'result' && l.details?.toolCallId === startLog.details?.toolCallId);
+                          
+                          return (
+                            <details key={lIdx} className="inline-tool-details">
+                              <summary>
+                                <Terminal size={12} className="tool-icon" />
+                                <span className="tool-title">{startLog.message.replace('Tool Invocation:', 'Running:')}</span>
+                              </summary>
+                              <div className="inline-tool-body">
+                                <pre>
+                                  {resultLog?.details?.result
+                                    ? `${resultLog.details.result.stdout || ''}\n${resultLog.details.result.stderr || ''}`.trim() || 'Success (no output)'
+                                    : startLog.details?.args ? JSON.stringify(startLog.details.args, null, 2) : 'Executing...'}
+                                </pre>
+                              </div>
+                            </details>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>

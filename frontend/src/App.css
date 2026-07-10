@@ -993,3 +993,59 @@
   font-style: italic;
   margin-bottom: 12px;
 }
+
+/* Inline Tool Executions (Claude/Pi-Web Style) */
+.inline-tool-executions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.inline-tool-details {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.inline-tool-details summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-card);
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: background-color 0.2s, color 0.2s;
+  user-select: none;
+}
+
+.inline-tool-details summary:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.inline-tool-details summary .tool-icon {
+  color: var(--accent);
+}
+
+.inline-tool-body {
+  padding: 12px;
+  background-color: var(--bg-main);
+  border-top: 1px solid var(--border-color);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.inline-tool-body pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--text-primary);
+}
