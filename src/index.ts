@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import { SessionService } from './services/session.js';
 import { sessionRoutes } from './routes/session.js';
 
+import { config } from './config.js';
+
 dotenv.config();
 
 const app = fastify({ logger: true });
@@ -27,11 +29,10 @@ app.get('/', async () => {
 });
 
 // Start fastify server
-const PORT = Number(process.env.PORT) || 3000;
 const start = async () => {
   try {
-    await app.listen({ port: PORT, host: '0.0.0.0' });
-    console.log(`🚀 Pi Provider API is running on http://localhost:${PORT}`);
+    await app.listen({ port: config.port, host: '0.0.0.0' });
+    console.log(`🚀 Pi Provider API is running on http://localhost:${config.port}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

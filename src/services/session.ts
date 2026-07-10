@@ -8,6 +8,7 @@ import {
   createExtensionRuntime,
   type ResourceLoader
 } from '@earendil-works/pi-coding-agent';
+import { config } from '../config.js';
 
 export interface CreateSessionOptions {
   modelProvider?: string;
@@ -30,10 +31,10 @@ export class SessionService {
    * Spins up a new programmatically controlled agent session
    */
   async create(options: CreateSessionOptions) {
-    const modelProvider = options.modelProvider || 'google';
-    const modelId = options.modelId || 'gemini-2.5-flash';
-    const systemPrompt = options.systemPrompt || 'You are an autonomous AI coding agent.';
-    const tools = options.tools || ['read', 'write', 'edit', 'ls', 'grep', 'bash'];
+    const modelProvider = options.modelProvider || config.defaultProvider;
+    const modelId = options.modelId || config.defaultModel;
+    const systemPrompt = options.systemPrompt || config.defaultSystemPrompt;
+    const tools = options.tools || config.defaultTools;
 
     // Resolve workspace directory
     const rawWorkspacePath = options.workspacePath || `./workspace-${Date.now()}`;
@@ -45,11 +46,8 @@ export class SessionService {
 
     const authStorage = AuthStorage.create();
     
-    // Resolve API key: body.apiKey -> env key -> empty fallback
-    const apiKey = options.apiKey || 
-      process.env[`${modelProvider.toUpperCase()}_API_KEY`] || 
-      process.env[`${modelProvider.toUpperCase()}_KEY`] || 
-      '';
+    // Resolve API key using config helper
+    const apiKey = config.getApiKey(modelProvider, options.apiKey);
 
     if (apiKey) {
       authStorage.setRuntimeApiKey(modelProvider, apiKey);
