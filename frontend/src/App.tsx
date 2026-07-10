@@ -43,7 +43,7 @@ export default function App() {
   const [settings, setSettings] = useState({
     modelProvider: configJson.defaultProvider || 'openrouter',
     modelId: configJson.defaultModel || 'cohere/north-mini-code:free',
-    systemPrompt: configJson.defaultSystemPrompt || 'You are Wayne, a general-purpose AI assistant capable of performing any task, including writing code, running commands, and analyzing data.',
+    systemPrompt: configJson.defaultSystemPrompt || 'You are Wayne, a general-purpose AI assistant. Only execute tools (such as reading, writing files, or running commands) when specifically requested by the user. Do not perform unsolicited actions or write placeholder files. Start by greeting the user and asking how you can help.',
     tools: configJson.defaultTools || ['read', 'write', 'edit', 'ls', 'grep', 'bash'],
     workspacePath: '',
     isStateful: false
