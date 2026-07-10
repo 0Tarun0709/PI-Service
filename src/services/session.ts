@@ -9,6 +9,14 @@ import {
   type ResourceLoader
 } from '@earendil-works/pi-coding-agent';
 import { config } from '../config.js';
+import {
+  saveSession,
+  saveSessionMessages,
+  updateSessionStatusAndMessages,
+  updateSessionStatus,
+  getSession,
+  listSessions
+} from '../db/index.js';
 
 export interface CreateSessionOptions {
   modelProvider?: string;
@@ -28,7 +36,7 @@ export class SessionService {
   private activeSessions = new Map<string, SessionEntry>();
 
   /**
-   * Spins up a new programmatically controlled agent session
+   * Spins up a new programmatically controlled agent session and logs it to SQLite
    */
   async create(options: CreateSessionOptions) {
     const modelProvider = options.modelProvider || config.defaultProvider;
@@ -37,7 +45,7 @@ export class SessionService {
     const tools = options.tools || config.defaultTools;
 
     // Resolve workspace directory
-    const rawWorkspacePath = options.workspacePath || `./workspace-${Date.now()}`;
+    const rawWorkspacePath = options.workspacePath || `./tmp-workspace-${Date.now()}`;
     const workspacePath = resolve(process.cwd(), rawWorkspacePath);
 
     if (!existsSync(workspacePath)) {
@@ -45,8 +53,6 @@ export class SessionService {
     }
 
     const authStorage = AuthStorage.create();
-    
-    // Resolve API key using config helper
     const apiKey = config.getApiKey(modelProvider, options.apiKey);
 
     if (apiKey) {
@@ -59,7 +65,6 @@ export class SessionService {
       throw new Error(`Model not found or not supported for provider '${modelProvider}' and id '${modelId}'.`);
     }
 
-    // Build the resource loader dynamically to support custom system prompts
     const resourceLoader: ResourceLoader = {
       getExtensions: () => ({ extensions: [], errors: [], runtime: createExtensionRuntime() }),
       getSkills: () => ({ skills: [], diagnostics: [] }),
@@ -87,6 +92,9 @@ export class SessionService {
     const sessionId = session.sessionId;
     this.activeSessions.set(sessionId, { session, workspacePath });
 
+    // Save initial session record in SQLite
+    saveSession(sessionId, workspacePath, `${modelProvider}/${modelId}`, 'active');
+
     return {
       sessionId,
       workspacePath,
@@ -96,32 +104,69 @@ export class SessionService {
   }
 
   /**
-   * Retrieves an active session entry by ID
+   * Updates the message logs for a session in the SQLite database
    */
-  get(id: string): SessionEntry | undefined {
+  saveMessages(id: string, messages: any[]) {
+    saveSessionMessages(id, messages);
+  }
+
+  /**
+   * Retrieves an active live session entry
+   */
+  getLive(id: string): SessionEntry | undefined {
     return this.activeSessions.get(id);
   }
 
   /**
-   * Lists all active session details
+   * Retrieves a session from active memory or falls back to SQLite records
    */
-  list() {
-    return Array.from(this.activeSessions.entries()).map(([id, entry]) => ({
-      sessionId: id,
-      workspacePath: entry.workspacePath,
-      messageCount: entry.session.state.messages.length
-    }));
+  get(id: string) {
+    // 1. Check live sessions in memory
+    const active = this.activeSessions.get(id);
+    if (active) {
+      return {
+        sessionId: active.session.sessionId,
+        workspacePath: active.workspacePath,
+        status: 'active',
+        messages: active.session.state.messages
+      };
+    }
+
+    // 2. Fallback: Query SQLite database
+    return getSession(id);
   }
 
   /**
-   * Disposes of and removes an active session
+   * Lists all session metadata records from SQLite
+   */
+  list() {
+    return listSessions();
+  }
+
+  /**
+   * Disposes of the active session, updates SQLite status, and persists final history logs
    */
   delete(id: string): boolean {
     const entry = this.activeSessions.get(id);
-    if (!entry) return false;
+    if (!entry) {
+      // If it's already deleted in memory, we can mark it as disposed in DB if it was active
+      return updateSessionStatus(id, 'disposed');
+    }
 
-    entry.session.dispose();
-    this.activeSessions.delete(id);
-    return true;
+    try {
+      const messages = entry.session.state.messages;
+      
+      // Save final message log and update status to disposed
+      updateSessionStatusAndMessages(id, 'disposed', messages);
+
+      // Clean up in-memory handles
+      entry.session.dispose();
+      this.activeSessions.delete(id);
+      
+      return true;
+    } catch (err) {
+      console.error(`Failed to dispose session ${id}:`, err);
+      return false;
+    }
   }
 }
