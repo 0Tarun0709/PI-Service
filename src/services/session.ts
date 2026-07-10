@@ -45,7 +45,7 @@ export class SessionService {
     const tools = options.tools || config.defaultTools;
 
     // Resolve workspace directory
-    const rawWorkspacePath = options.workspacePath || `./tmp-workspace-${Date.now()}`;
+    const rawWorkspacePath = options.workspacePath || `./.tmp/workspace-${Date.now()}`;
     const workspacePath = resolve(process.cwd(), rawWorkspacePath);
 
     if (!existsSync(workspacePath)) {
