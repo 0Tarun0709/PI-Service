@@ -3,7 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import { Sidebar } from './components/Sidebar';
 import { SettingsModal } from './components/SettingsModal';
 import { ArtifactPanel, type LogEntry } from './components/ArtifactPanel';
-import { Send, Settings, Terminal } from 'lucide-react';
+import { Send, Settings, Terminal, ChevronDown, ChevronRight, CheckCircle2, Paperclip, Box, AlertCircle } from 'lucide-react';
+import './App.css';
 
 const API_URL = 'http://localhost:3000/api';
 
@@ -29,15 +30,18 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [statusText, setStatusText] = useState('Idle');
   
+  // Expanded states for Tool Cards
+  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
+
   // Modals & Panels toggle
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isArtifactOpen, setIsArtifactOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
 
   // Settings state
   const [settings, setSettings] = useState({
     modelProvider: 'openrouter',
-    modelId: 'poolside/laguna-xs-2.1:free',
+    modelId: 'cohere/north-mini-code:free',
     systemPrompt: 'You are a helpful and concise AI coding assistant.',
     tools: ['read', 'write', 'edit', 'ls', 'grep', 'bash'],
     workspacePath: '',
@@ -47,7 +51,6 @@ export default function App() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Toggle Dark Mode
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -56,15 +59,17 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Load Session List on Load
   useEffect(() => {
     loadSessions();
   }, []);
 
-  // Scroll to bottom of message list on updates
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, logs]);
+
+  const toggleTool = (toolId: string) => {
+    setExpandedTools(prev => ({ ...prev, [toolId]: !prev[toolId] }));
+  };
 
   const loadSessions = async () => {
     try {
@@ -164,7 +169,6 @@ export default function App() {
     setSettings(newSettings);
     setIsStateful(newSettings.isStateful);
     if (newSettings.isStateful) {
-      // Create session with the config directly
       handleCreateSession();
     } else {
       handleSelectStateless();
@@ -198,17 +202,13 @@ export default function App() {
     if (!promptText) return;
 
     chatInputRef.current.value = '';
+    chatInputRef.current.style.height = 'auto';
     setIsProcessing(true);
     setLogs([]);
 
-    // 1. Add user message
     setMessages((prev) => [...prev, { role: 'user', content: promptText }]);
-
-    // 2. Add blank assistant bubble
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
 
-    // Open side panel for logs to keep users informed
-    setIsArtifactOpen(true);
     setStatusText(isStateful ? 'Agent is booting...' : 'Temporary sandbox booting...');
 
     const streamUrl = isStateful 
@@ -222,11 +222,7 @@ export default function App() {
         body: JSON.stringify({ prompt: promptText })
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText);
-      }
-
+      if (!response.ok) throw new Error(await response.text());
       if (!response.body) throw new Error('ReadableStream not supported');
 
       const reader = response.body.getReader();
@@ -258,28 +254,32 @@ export default function App() {
                   }
                   return updated;
                 });
-              }
-
-              if (event.type === 'agent_start') {
-                setStatusText('Planning...');
-                addLog('Agent run loop started', 'system');
+                
+                // If it streams an artifact tag, open the right pane
+                if (delta.includes('<antArtifact') || delta.includes('```')) {
+                  setIsArtifactOpen(true);
+                }
               }
 
               if (event.type === 'tool_execution_start') {
                 setStatusText(`Running tool: ${event.toolName}`);
                 const argsStr = event.args ? JSON.stringify(event.args) : '';
                 addLog(`Tool Invocation: ${event.toolName} (Args: ${argsStr})`, 'tool', event);
+                // Open drawer by default when starting
+                setExpandedTools(prev => ({ ...prev, [event.toolCallId || event.toolName]: true }));
               }
 
               if (event.type === 'tool_execution_end') {
                 const status = event.isError ? 'error' : 'success';
                 addLog(`Tool completed: ${event.toolName} (${status})`, 'result', event);
+                // Close drawer when finished to keep UI clean
+                setExpandedTools(prev => ({ ...prev, [event.toolCallId || event.toolName]: false }));
               }
 
               if (event.type === 'error' || event.type === 'auto_retry_start' || event.type === 'auto_retry_end') {
                 const isRetry = event.type.startsWith('auto_retry');
                 const errorMsg = isRetry ? event.errorMessage || event.finalError : event.message;
-                const logLabel = event.type === 'auto_retry_start' ? `Retrying (Attempt ${event.attempt}/${event.maxAttempts}): ${errorMsg}` : `Agent error: ${errorMsg}`;
+                const logLabel = event.type === 'auto_retry_start' ? `Retrying: ${errorMsg}` : `Agent error: ${errorMsg}`;
                 
                 addLog(logLabel, 'error');
                 
@@ -319,12 +319,20 @@ export default function App() {
       });
     } finally {
       setIsProcessing(false);
-      if (isStateful) loadSessions(); // Refresh metadata list
+      if (isStateful) loadSessions();
+      setTimeout(() => chatInputRef.current?.focus(), 100);
+    }
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitPrompt(e as unknown as React.FormEvent);
     }
   };
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${darkMode ? 'dark' : ''}`}>
       {/* Sidebar history */}
       <Sidebar
         sessions={sessions}
@@ -338,56 +346,20 @@ export default function App() {
         setDarkMode={setDarkMode}
       />
 
-      {/* Main chat center */}
-      <main className={`chat-area ${isArtifactOpen ? 'panel-open' : ''}`}>
-        <header className="chat-header">
-          <div className="active-session-info">
-            <h2>
-              {!activeSessionId && !isStateful 
-                ? 'Stateless Sandbox' 
-                : `Session: ${activeSessionId?.slice(0, 12) || 'Configuring'}...`}
-            </h2>
-            <p>
-              {!activeSessionId && !isStateful 
-                ? `Provider: ${settings.modelProvider} • ${settings.modelId}`
-                : `Model: ${settings.modelProvider}/${settings.modelId}`}
-            </p>
-          </div>
-          <div className="header-actions">
-            <button 
-              onClick={() => setIsArtifactOpen(!isArtifactOpen)}
-              className={`btn btn-secondary ${isArtifactOpen ? 'active' : ''}`}
-            >
-              <Terminal size={15} />
-              <span>Workspace Logs {logs.length > 0 && `(${logs.length})`}</span>
-            </button>
-            <button onClick={() => setIsSettingsOpen(true)} className="btn btn-secondary">
-              <Settings size={15} />
-              <span>Config</span>
-            </button>
-          </div>
-        </header>
-
-        {/* Chat Message History */}
+      {/* Main Chat Workspace */}
+      <main className="main-chat">
         <section className="messages-container">
           {messages.length === 0 ? (
             <div className="welcome-box">
-              <h2>Welcome to Pi Provider Console 🤖</h2>
-              <p>
-                An interactive interface wrapper to orchestrate the terminal-first Pi coding agent.
-                You can write prompts to write code, edit directories, compile scripts, and run bash processes in a local sandbox workspace.
+              <h2>Good afternoon</h2>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                I'm Claude, your AI coding assistant.
               </p>
               <div className="quick-starts">
-                <button 
-                  onClick={() => handleQuickStart('List the files in the workspace directory.')} 
-                  className="quick-start-btn"
-                >
+                <button onClick={() => handleQuickStart('List the files in the workspace directory.')} className="quick-start-btn">
                   📁 List directory files
                 </button>
-                <button 
-                  onClick={() => handleQuickStart('Write a hello-world.ts script that logs dates, and run it.')} 
-                  className="quick-start-btn"
-                >
+                <button onClick={() => handleQuickStart('Write a hello-world.ts script that logs dates, and run it.')} className="quick-start-btn">
                   📝 Write and compile TS
                 </button>
               </div>
@@ -395,12 +367,16 @@ export default function App() {
           ) : (
             <div className="messages-list">
               {messages.map((msg, index) => (
-                <div key={index} className={`message-row ${msg.role}`}>
+                <div key={index} className={`message-row ${msg.role === 'user' ? 'user-message' : 'assistant-message'}`}>
                   <span className="message-sender">
-                    {msg.role === 'user' ? 'User' : 'Pi Agent'}
+                    {msg.role === 'user' ? 'You' : (
+                      <>
+                        <Box size={16} /> Claude
+                      </>
+                    )}
                   </span>
                   <div className="message-bubble">
-                    {msg.content.trim() === '' ? (
+                    {msg.content.trim() === '' && logs.length === 0 ? (
                       <div className="spinner-dots">
                         <span className="dot"></span>
                         <span className="dot"></span>
@@ -410,27 +386,38 @@ export default function App() {
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     )}
                     
-                    {/* Inline Tool Executions rendering at the bottom of the latest Assistant turn */}
+                    {/* Tool Integration Web Cards */}
                     {msg.role === 'assistant' && index === messages.length - 1 && logs.filter(l => l.type === 'tool').length > 0 && (
-                      <div className="inline-tool-executions animate-fade-in">
+                      <div className="tool-executions">
                         {logs.filter(l => l.type === 'tool').map((startLog, lIdx) => {
-                          // Find the corresponding result log that comes after this tool invocation
-                          const resultLog = logs.find(l => l.type === 'result' && l.details?.toolCallId === startLog.details?.toolCallId);
+                          const toolCallId = startLog.details?.toolCallId || startLog.details?.toolName;
+                          const isExpanded = expandedTools[toolCallId] || false;
+                          const resultLog = logs.find(l => l.type === 'result' && (l.details?.toolCallId === toolCallId || l.details?.toolName === startLog.details?.toolName));
+                          
+                          const toolName = startLog.details?.toolName || 'bash';
+                          const statusLabel = resultLog ? (resultLog.details?.isError ? 'Failed' : 'Executed') : 'Running...';
                           
                           return (
-                            <details key={lIdx} className="inline-tool-details">
-                              <summary>
-                                <Terminal size={12} className="tool-icon" />
-                                <span className="tool-title">{startLog.message.replace('Tool Invocation:', 'Running:')}</span>
-                              </summary>
-                              <div className="inline-tool-body">
-                                <pre>
-                                  {resultLog?.details?.result
-                                    ? `${resultLog.details.result.stdout || ''}\n${resultLog.details.result.stderr || ''}`.trim() || 'Success (no output)'
-                                    : startLog.details?.args ? JSON.stringify(startLog.details.args, null, 2) : 'Executing...'}
-                                </pre>
+                            <div key={lIdx} className={`tool-card ${isExpanded ? 'expanded' : ''} ${resultLog?.details?.isError ? 'error' : ''}`}>
+                              <div className="tool-header" onClick={() => toggleTool(toolCallId)}>
+                                {isExpanded ? <ChevronDown size={16} className="tool-icon"/> : <ChevronRight size={16} className="tool-icon"/>}
+                                <Terminal size={14} className="tool-icon" />
+                                <span className="tool-title">{resultLog ? `Ran tool: ${toolName}` : `Running ${toolName}...`}</span>
+                                <span className="tool-status">
+                                  {resultLog ? (resultLog.details?.isError ? <AlertCircle size={14}/> : <CheckCircle2 size={14} className="tool-icon" style={{color: 'var(--accent)'}}/>) : <span className="spinner"></span>}
+                                  <span style={{marginLeft: 4}}>{statusLabel}</span>
+                                </span>
                               </div>
-                            </details>
+                              {isExpanded && (
+                                <div className="tool-body">
+                                  <pre>
+                                    {resultLog?.details?.result
+                                      ? `${resultLog.details.result.stdout || ''}\n${resultLog.details.result.stderr || ''}`.trim() || 'Success (no output)'
+                                      : startLog.details?.args ? JSON.stringify(startLog.details.args, null, 2) : 'Executing...'}
+                                  </pre>
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
@@ -438,40 +425,48 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} style={{height: 40}} />
             </div>
           )}
         </section>
 
-        {/* Chat Inputs */}
+        {/* Floating Input Container */}
         <footer className="chat-input-container">
           <form onSubmit={submitPrompt} id="chat-form">
             <textarea
               ref={chatInputRef}
               id="chat-input"
-              placeholder="Ask the agent to build, run or search..."
+              placeholder={isProcessing ? "Claude is thinking..." : "How can Claude help you today?"}
               disabled={isProcessing}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  e.currentTarget.form?.requestSubmit();
-                }
-              }}
               rows={1}
+              onChange={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+              }}
+              onKeyDown={handleInputKeyDown}
             />
-            <button 
-              type="submit" 
-              disabled={isProcessing} 
-              className="btn-send"
-              style={{ opacity: isProcessing ? 0.6 : 1 }}
-            >
-              <Send size={16} />
-            </button>
+            <div className="chat-input-actions">
+              <div className="chat-input-left">
+                <button type="button" className="action-btn" title="Add File">
+                  <Paperclip size={18} />
+                </button>
+                <button type="button" className="action-btn" onClick={() => setIsSettingsOpen(true)} title="Config">
+                  <Settings size={18} />
+                </button>
+              </div>
+              <button 
+                type="submit" 
+                className="submit-btn" 
+                disabled={isProcessing}
+              >
+                <Send size={16} />
+              </button>
+            </div>
           </form>
         </footer>
       </main>
 
-      {/* Artifact/Logs Panel */}
+      {/* Artifacts Split Panel */}
       <ArtifactPanel
         isOpen={isArtifactOpen}
         onClose={() => setIsArtifactOpen(false)}
@@ -480,13 +475,14 @@ export default function App() {
         isProcessing={isProcessing}
       />
 
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        onSave={handleSaveSettings}
-        initialSettings={settings}
-      />
+      {isSettingsOpen && (
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          initialSettings={settings}
+          onSave={handleSaveSettings}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 }
