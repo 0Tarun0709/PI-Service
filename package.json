@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/index.ts",
+    "dev:frontend": "bun run --cwd ./frontend dev",
     "build": "tsc",
     "start": "bun run dist/index.js"
   },
