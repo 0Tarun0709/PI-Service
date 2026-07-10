@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Sidebar } from './components/Sidebar';
 import { SettingsModal } from './components/SettingsModal';
 import { ArtifactPanel, type LogEntry } from './components/ArtifactPanel';
@@ -250,9 +251,10 @@ export default function App() {
                 const delta = event.assistantMessageEvent.delta;
                 setMessages((prev) => {
                   const updated = [...prev];
-                  const last = updated[updated.length - 1];
+                  const idx = updated.length - 1;
+                  const last = updated[idx];
                   if (last && last.role === 'assistant') {
-                    last.content += delta;
+                    updated[idx] = { ...last, content: last.content + delta };
                   }
                   return updated;
                 });
@@ -263,22 +265,25 @@ export default function App() {
                 addLog('Agent run loop started', 'system');
               }
 
-              if (event.type === 'tool_call') {
+              if (event.type === 'tool_execution_start') {
                 setStatusText(`Running tool: ${event.toolName}`);
-                addLog(`Tool Invocation: ${event.toolName}`, 'tool', event);
+                const argsStr = event.args ? JSON.stringify(event.args) : '';
+                addLog(`Tool Invocation: ${event.toolName} (Args: ${argsStr})`, 'tool', event);
               }
 
-              if (event.type === 'tool_result') {
-                addLog(`Tool returned state: ${event.result?.status || 'success'}`, 'result', event);
+              if (event.type === 'tool_execution_end') {
+                const status = event.isError ? 'error' : 'success';
+                addLog(`Tool completed: ${event.toolName} (${status})`, 'result', event);
               }
 
               if (event.type === 'error') {
                 addLog(`Agent execution error: ${event.message}`, 'error');
                 setMessages((prev) => {
                   const updated = [...prev];
-                  const last = updated[updated.length - 1];
+                  const idx = updated.length - 1;
+                  const last = updated[idx];
                   if (last && last.role === 'assistant') {
-                    last.content += `\n[Runtime Error: ${event.message}]`;
+                    updated[idx] = { ...last, content: last.content + `\n[Runtime Error: ${event.message}]` };
                   }
                   return updated;
                 });
@@ -298,9 +303,10 @@ export default function App() {
       addLog(`Failed to run prompt: ${err.message}`, 'error');
       setMessages((prev) => {
         const updated = [...prev];
-        const last = updated[updated.length - 1];
+        const idx = updated.length - 1;
+        const last = updated[idx];
         if (last && last.role === 'assistant') {
-          last.content = `Error connecting to agent: ${err.message}`;
+          updated[idx] = { ...last, content: `Error connecting to agent: ${err.message}` };
         }
         return updated;
       });
@@ -394,7 +400,7 @@ export default function App() {
                         <span className="dot"></span>
                       </div>
                     ) : (
-                      <p style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
                     )}
                   </div>
                 </div>

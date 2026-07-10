@@ -29,18 +29,29 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
 
   // Extract bash execution output logs for a quick console-view
   const bashOutputs = logs
-    .filter(log => log.type === 'tool' && log.message.includes('bash') || log.type === 'result')
+    .filter(log => (log.type === 'tool' && log.message.includes('bash')) || (log.type === 'result' && log.details?.toolName === 'bash'))
     .map(log => {
       if (log.type === 'tool') {
-        const cmd = log.details?.input || '';
+        const cmd = log.details?.args?.command || log.details?.args || '';
         return `\n$ ${cmd}`;
       }
-      // Result print out
-      if (log.details?.result?.content) {
-        const textContent = log.details.result.content
-          .map((c: any) => c.text || '')
-          .join('\n');
-        return textContent;
+      // Result print out from tool execution end
+      if (log.type === 'result' && log.details?.result) {
+        const res = log.details.result;
+        if (typeof res === 'string') {
+          return res;
+        }
+        if (res.stdout !== undefined || res.stderr !== undefined) {
+          let out = res.stdout || '';
+          if (res.stderr) {
+            out += `\nError:\n${res.stderr}`;
+          }
+          return out;
+        }
+        if (Array.isArray(res.content)) {
+          return res.content.map((c: any) => c.text || JSON.stringify(c)).join('\n');
+        }
+        return JSON.stringify(res);
       }
       return '';
     })
